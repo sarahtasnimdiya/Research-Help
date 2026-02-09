@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Research Help – Project Q&A</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<h2>Upload your project</h2>
+
+<input type="file" id="file">
+<button onclick="upload()">Upload project</button>
+
+<p id="pid"></p>
+
+<hr>
+
+<h2>Ask a question</h2>
+
+<input type="text" id="question" style="width:400px">
+<button onclick="ask()">Ask</button>
+
+<pre id="answer"></pre>
+
+<script>
+let projectId = null;
+
+async function upload() {
+
+    const f = document.getElementById("file").files[0];
+    if(!f){
+        alert("Select a zip file");
+        return;
+    }
+
+    const fd = new FormData();
+    fd.append("file", f);
+
+    const r = await fetch("/upload", {
+        method:"POST",
+        body: fd
+    });
+
+    const j = await r.json();
+    projectId = j.project_id;
+
+    document.getElementById("pid").innerText =
+        "Project ready. ID: " + projectId;
+}
+
+async function ask(){
+
+    if(!projectId){
+        alert("Upload a project first");
+        return;
+    }
+
+    const fd = new FormData();
+    fd.append("project_id", projectId);
+    fd.append("question", document.getElementById("question").value);
+
+    const r = await fetch("/ask", {
+        method:"POST",
+        body: fd
+    });
+
+    const j = await r.json();
+    document.getElementById("answer").innerText = j.answer;
+}
+</script>
+
+</body>
+</html>

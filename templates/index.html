@@ -1,71 +1,188 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Research Help – Project Q&A</title>
+    <title>Research Help</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
 
-<h2>Upload your project</h2>
+<div class="app">
 
-<input type="file" id="file">
-<button onclick="upload()">Upload project</button>
+    <!-- Sidebar -->
+    <div class="sidebar">
 
-<p id="pid"></p>
+        <h2>Research Help</h2>
 
-<hr>
+        <div class="upload-box">
+            <label class="upload-label">
+                Upload project
+                <input type="file" id="file" multiple hidden>
+            </label>
 
-<h2>Ask a question</h2>
+            <div id="fileList" class="file-list"></div>
 
-<input type="text" id="question" style="width:400px">
-<button onclick="ask()">Ask</button>
+            <button id="uploadBtn" onclick="upload()">Prepare project</button>
 
-<pre id="answer"></pre>
+            <div id="uploadStatus" class="status"></div>
+        </div>
+
+        <div class="project-box">
+            <div class="project-label">Current project</div>
+            <div id="projectId">None</div>
+        </div>
+
+    </div>
+
+    <!-- Chat area -->
+    <div class="chat-area">
+
+        <div id="chat" class="chat"></div>
+
+        <div class="input-bar">
+
+            <input
+                type="text"
+                id="question"
+                placeholder="Ask something about the uploaded project..."
+                onkeydown="handleEnter(event)"
+            >
+
+            <button id="askBtn" onclick="ask()">Send</button>
+        </div>
+
+    </div>
+
+</div>
 
 <script>
 let projectId = null;
 
-async function upload() {
+const chat = document.getElementById("chat");
+const fileInput = document.getElementById("file");
+const fileList = document.getElementById("fileList");
+const uploadBtn = document.getElementById("uploadBtn");
+const askBtn = document.getElementById("askBtn");
+const uploadStatus = document.getElementById("uploadStatus");
 
-    const f = document.getElementById("file").files[0];
-    if(!f){
-        alert("Select a zip file");
+fileInput.addEventListener("change", () => {
+    fileList.innerHTML = "";
+    for (const f of fileInput.files) {
+        const d = document.createElement("div");
+        d.textContent = "• " + f.name;
+        fileList.appendChild(d);
+    }
+});
+
+function addMessage(role, text) {
+
+    const msg = document.createElement("div");
+    msg.className = "msg " + role;
+
+    const bubble = document.createElement("div");
+    bubble.className = "bubble";
+    bubble.textContent = text;
+
+    msg.appendChild(bubble);
+    chat.appendChild(msg);
+
+    chat.scrollTop = chat.scrollHeight;
+
+    return bubble;
+}
+
+async function upload(){
+
+    const files = fileInput.files;
+
+    if(!files || files.length === 0){
+        uploadStatus.textContent = "Select files first.";
         return;
     }
 
+    uploadBtn.disabled = true;
+    uploadStatus.textContent = "Preparing project...";
+
     const fd = new FormData();
-    fd.append("file", f);
+    for(const f of files){
+        fd.append("files", f);
+    }
 
-    const r = await fetch("/upload", {
-        method:"POST",
-        body: fd
-    });
+    try{
 
-    const j = await r.json();
-    projectId = j.project_id;
+        const r = await fetch("/upload", {
+            method:"POST",
+            body:fd
+        });
 
-    document.getElementById("pid").innerText =
-        "Project ready. ID: " + projectId;
+        const j = await r.json();
+
+        projectId = j.project_id;
+
+        document.getElementById("projectId").textContent = projectId;
+        uploadStatus.textContent = "Project ready.";
+
+        chat.innerHTML = "";
+        addMessage("assistant",
+            "Your project is ready. You can now ask questions about it."
+        );
+
+    }catch(e){
+
+        uploadStatus.textContent = "Upload failed.";
+
+    }finally{
+        uploadBtn.disabled = false;
+    }
 }
 
 async function ask(){
 
     if(!projectId){
-        alert("Upload a project first");
+        addMessage("assistant","Please upload a project first.");
         return;
     }
 
+    const input = document.getElementById("question");
+    const q = input.value.trim();
+
+    if(!q) return;
+
+    input.value = "";
+
+    addMessage("user", q);
+
+    askBtn.disabled = true;
+
+    const thinkingBubble = addMessage("assistant","Thinking...");
+
     const fd = new FormData();
     fd.append("project_id", projectId);
-    fd.append("question", document.getElementById("question").value);
+    fd.append("question", q);
 
-    const r = await fetch("/ask", {
-        method:"POST",
-        body: fd
-    });
+    try{
 
-    const j = await r.json();
-    document.getElementById("answer").innerText = j.answer;
+        const r = await fetch("/ask", {
+            method:"POST",
+            body:fd
+        });
+
+        const j = await r.json();
+
+        thinkingBubble.textContent = j.answer;
+
+    }catch(e){
+
+        thinkingBubble.textContent = "Failed to get answer.";
+
+    }finally{
+        askBtn.disabled = false;
+    }
+}
+
+function handleEnter(e){
+    if(e.key === "Enter"){
+        ask();
+    }
 }
 </script>
 

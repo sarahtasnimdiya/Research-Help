@@ -17,7 +17,7 @@ from llama_index.core import (
 )
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.llms.llama_cpp import LlamaCPP
-
+from typing import List
 
 # Config
 
@@ -114,27 +114,48 @@ def home(request: Request):
     )
 
 
+
 @app.post("/upload")
-async def upload_project(file: UploadFile = File(...)):
+async def upload_project(files: List[UploadFile] = File(...)):
 
-    if not file.filename.endswith(".zip"):
-        return JSONResponse(
-            {"error": "Please upload a ZIP file"},
-            status_code=400
-        )
+    project_id = str(uuid.uuid4())
 
-    tmp_zip = f"tmp_{uuid.uuid4().hex}.zip"
+    project_dir = os.path.join(BASE_PROJECTS_DIR, project_id)
+    storage_dir = os.path.join(BASE_STORAGE_DIR, project_id)
 
-    with open(tmp_zip, "wb") as f:
-        shutil.copyfileobj(file.file, f)
+    os.makedirs(project_dir, exist_ok=True)
+    os.makedirs(storage_dir, exist_ok=True)
 
-    try:
-        project_id = save_and_prepare_project(tmp_zip)
-    finally:
-        if os.path.exists(tmp_zip):
-            os.remove(tmp_zip)
+    # save all uploaded files
+    for file in files:
+        filename = os.path.basename(file.filename)
+        save_path = os.path.join(project_dir, filename)
+
+        with open(save_path, "wb") as f:
+            shutil.copyfileobj(file.file, f)
+
+        # if zip -> extract
+        if filename.lower().endswith(".zip"):
+            try:
+                with zipfile.ZipFile(save_path, "r") as z:
+                    z.extractall(project_dir)
+            except zipfile.BadZipFile:
+                return JSONResponse(
+                    {"error": f"{filename} is not a valid zip file"},
+                    status_code=400
+                )
+
+    # now index the full folder
+    documents = SimpleDirectoryReader(
+        project_dir,
+        recursive=True
+    ).load_data()
+
+    index = VectorStoreIndex.from_documents(documents)
+    index.storage_context.persist(persist_dir=storage_dir)
 
     return {"project_id": project_id}
+
 
 
 @app.post("/ask")

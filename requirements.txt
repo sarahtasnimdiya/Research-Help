@@ -2,4 +2,5 @@ llama-index
 llama-index-llms-llama-cpp
 pypdf
 nbconvert
+docx2txt
 

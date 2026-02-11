@@ -166,9 +166,43 @@ async function ask(){
             body:fd
         });
 
+        if(!r.ok){
+            const t = await r.text();
+            console.error(t);
+            thinkingBubble.textContent = "Server error. Check backend console.";
+            askBtn.disabled = false;
+            return;
+        }
+
         const j = await r.json();
 
-        thinkingBubble.textContent = j.answer;
+        thinkingBubble.textContent = j.answer || "No answer.";
+
+        if(j.sources && j.sources.length > 0){
+
+            const src = document.createElement("div");
+            src.style.marginTop = "8px";
+            src.style.fontSize = "12px";
+            src.style.opacity = "0.7";
+
+            src.textContent = "Sources:\n" + j.sources.join("\n");
+
+            thinkingBubble.appendChild(src);
+        }
+
+
+        if(j.sources && j.sources.length > 0){
+
+            const src = document.createElement("div");
+            src.style.marginTop = "8px";
+            src.style.fontSize = "12px";
+            src.style.opacity = "0.7";
+
+            src.textContent = "Sources:\n" + j.sources.join("\n");
+
+            thinkingBubble.appendChild(src);
+        }
+
 
     }catch(e){
 

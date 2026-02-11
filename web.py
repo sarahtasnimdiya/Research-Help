@@ -97,10 +97,18 @@ def query_project(project_id: str, question: str) -> str:
     index = load_index_from_storage(storage_context)
 
     query_engine = index.as_query_engine(similarity_top_k=4)
-
     response = query_engine.query(question)
 
-    return str(response)
+    sources = []
+    for n in response.source_nodes:
+        meta = n.node.metadata
+        sources.append(meta.get("file_path") or meta.get("file_name"))
+
+    return {
+        "answer": response.response,
+        "sources": sources
+    }
+
 
 
 
@@ -163,5 +171,4 @@ async def ask(
     project_id: str = Form(...),
     question: str = Form(...)
 ):
-    answer = query_project(project_id, question)
-    return {"answer": answer}
+    return query_project(project_id, question)
